@@ -29,19 +29,19 @@ func (r Response) make(rw http.ResponseWriter, req *http.Request) {
 	io.WriteString(rw, r.Data)
 }
 
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Calling healthz handler")
+	response := Response{StatusCode: 200, Data: "{\"ok\": true}"}
+	response.make(w, r)
+}
+
+func defaultHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Calling default handler")
+	response := Response{StatusCode: 200, Data: "welcome"}
+	response.make(w, r)
+}
+
 func main() {
-	healthzHandler := func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Calling healthz handler")
-		response := Response{StatusCode: 200, Data: "{\"ok\": true}"}
-		response.make(w, r)
-	}
-
-	defaultHandler := func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Calling default handler")
-		response := Response{StatusCode: 200, Data: "welcome"}
-		response.make(w, r)
-	}
-
 	http.HandleFunc("/healthz", healthzHandler)
 	http.HandleFunc("/", defaultHandler)
 	log.Println("Starting http server")
