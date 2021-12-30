@@ -8,8 +8,8 @@ import (
 )
 
 type Response struct {
-	StatusCode int    `json:"status"`
-	Data       string `json:"data"`
+	StatusCode int
+	Data       string
 }
 
 func (r Response) make(rw http.ResponseWriter, req *http.Request) {
@@ -31,7 +31,7 @@ func (r Response) make(rw http.ResponseWriter, req *http.Request) {
 
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Calling healthz handler")
-	response := Response{StatusCode: 200, Data: "{\"ok\": true}"}
+	response := Response{StatusCode: 200, Data: "ok"}
 	response.make(w, r)
 }
 
