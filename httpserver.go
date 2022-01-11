@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 )
 
@@ -42,8 +43,18 @@ func defaultHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/healthz", healthzHandler)
-	http.HandleFunc("/", defaultHandler)
+	mux := http.NewServeMux()
+	debug := os.Getenv("HTTP_DEBUG")
+	if debug == "1" {
+		log.Println("Adding debug handlers...")
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
+
+	mux.HandleFunc("/healthz", healthzHandler)
+	mux.HandleFunc("/", defaultHandler)
 	log.Println("Starting http server")
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	log.Fatal(http.ListenAndServe(":8000", mux))
 }
