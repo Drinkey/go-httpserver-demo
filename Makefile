@@ -12,24 +12,27 @@ docker-build:
 build-docker-image:
 	docker build -t drinkey/httpserver:latest .
 
-build: docker-build
+build: unittest docker-build
 	docker run --rm -v $(CUR_DIR):/app/ -w /app httpserver-build:latest go build -v -o build/httpserver
 
-run: unittest build build-docker-image
+run: build build-docker-image
 	docker run -d -p 80:8000 --name httpserver drinkey/httpserver:latest
 
 stop:
 	docker rm -f httpserver
 	docker ps -a
 
-test: run
+servicetest: run
 	curl http://localhost/healthz
 	curl http://localhost/
 	@echo "Service Test PASSED"
+
+test: servicetest stop
+	@echo "All Tests PASSED"
 
 push:
 	docker login
 	docker push drinkey/httpserver:latest
 
-release: run test push stop
+release: build test push
 	@echo "Push success, service stopped"
