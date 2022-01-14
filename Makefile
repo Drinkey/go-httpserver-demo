@@ -6,16 +6,10 @@ local-build:
 unittest:
 	go test -v ./...
 
-docker-build:
-	docker build -t httpserver-build:latest -f build.dockerfile .
-
-build-docker-image:
+build: unittest
 	docker build -t drinkey/httpserver:latest .
 
-build: unittest docker-build
-	docker run --rm -v $(CUR_DIR):/app/ -w /app httpserver-build:latest go build -v -o build/httpserver
-
-run: build build-docker-image
+run: build
 	docker run -d -p 80:8000 --name httpserver drinkey/httpserver:latest
 
 stop:
