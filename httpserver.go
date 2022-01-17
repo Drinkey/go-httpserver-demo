@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 type Response struct {
@@ -55,6 +59,39 @@ func main() {
 
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/", defaultHandler)
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	serverAddr := ":8000"
+
+	srv := &http.Server{
+		Addr:    serverAddr,
+		Handler: mux,
+	}
+
 	log.Println("Starting http server")
-	log.Fatal(http.ListenAndServe(":8000", mux))
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start http server, %+v", err)
+		}
+	}()
+
+	log.Printf("Server started on %s", serverAddr)
+
+	// wait for done channel receive signal
+	sig := <-done
+	log.Printf("Got signal %s", sig)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer func() {
+		log.Println("Running clean up...")
+		srv.Close()
+		cancel()
+	}()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Failed to gracefully shutdown the http server: %+v", err)
+	}
+	log.Println("Server properly stopped")
 }
