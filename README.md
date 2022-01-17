@@ -1,6 +1,13 @@
 # go-httpserver-demo
 Demo for learning go httpserver
 
+README Table of Content
+- [go-httpserver-demo](#go-httpserver-demo)
+  - [Requirement](#requirement)
+  - [Useful make commands](#useful-make-commands)
+  - [Graceful shutdown](#graceful-shutdown)
+  - [Enter Docker Namespace](#enter-docker-namespace)
+- [Kubernetes](#kubernetes)
 ## Requirement
 
 - 接收客户端 request，并将 request 中带的 header 写入 response header
@@ -8,7 +15,7 @@ Demo for learning go httpserver
 - Server 端记录访问日志包括客户端 IP，HTTP 返回码，输出到 server 端的标准输出
 - 当访问 localhost/healthz 时，应返回 200
 
-## Useful make command
+## Useful make commands
 
 Run unittest
 ```
@@ -29,6 +36,7 @@ make release
 ```
 
 ## Graceful shutdown
+
 Listen to SIGINT and SIGTERM for graceful shutdown the http server, read the 
 signal from a channel, and block until signal received. Once signal received, 
 start initiating a grace shutdown.
@@ -86,6 +94,6 @@ default via 172.17.0.1 dev eth0
 cloud-native-instance-1:~$
 ```
 
-## Kubernetes
+# Kubernetes
 
 [Kubernetes installation on GCP](k8s-install)
