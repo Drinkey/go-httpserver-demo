@@ -6,6 +6,8 @@ README Table of Content
   - [Requirement](#requirement)
   - [Useful make commands](#useful-make-commands)
   - [Graceful shutdown](#graceful-shutdown)
+- [Module 3](#module-3)
+  - [Requirement](#requirement-1)
   - [Enter Docker Namespace](#enter-docker-namespace)
 - [Kubernetes](#kubernetes)
 ## Requirement
@@ -72,6 +74,20 @@ $ ./go-httpserver-demo
 2022/01/17 15:10:32 Server properly stopped
 2022/01/17 15:10:32 Running clean up...
 ```
+
+# Module 3
+
+## Requirement
+- 构建本地镜像
+- 编写 Dockerfile 将练习 2.2 编写的 httpserver 容器化
+  - [Dockerfile](Dockerfile)
+- 将镜像推送至 docker 官方镜像仓库
+  - `make push` or `make release` to push the image to hub.docker.com
+- 通过 docker 命令本地启动 httpserver
+  - `make run` to start the container
+- 通过 nsenter 进入容器查看 IP 配置
+  - [Enter Docker Namespace and show network](#enter-docker-namespace)
+
 
 ## Enter Docker Namespace
 
