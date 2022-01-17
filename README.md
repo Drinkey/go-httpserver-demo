@@ -85,9 +85,9 @@ $ ./go-httpserver-demo
 - 编写 Dockerfile 将练习 2.2 编写的 httpserver 容器化
   - [Dockerfile](Dockerfile)
 - 将镜像推送至 docker 官方镜像仓库
-  - `make push` or `make release` to push the image to hub.docker.com
+  - [Makefile](Makefile) `make push` or `make release` to push the image to hub.docker.com
 - 通过 docker 命令本地启动 httpserver
-  - `make run` to start the container
+  - [Makefile](Makefile) `make run` to start the container
 - 通过 nsenter 进入容器查看 IP 配置
   - [Enter Docker Namespace and show network](#enter-docker-namespace)
 
