@@ -8,10 +8,26 @@ Demo for learning go httpserver
 - Server 端记录访问日志包括客户端 IP，HTTP 返回码，输出到 server 端的标准输出
 - 当访问 localhost/healthz 时，应返回 200
 
-## Command
+## Useful make command
 
-Run the following command will build the httpserver binary and build the docker image to run the server, then launch a container to run the service on `0.0.0.0:80`
-
-```sh
-$ make run
+Run unittest
 ```
+make unittest
+```
+
+Run unittest, then build docker image, launch the httpserver container and do the
+test with curl.
+```
+make test
+```
+
+Release the docker image. This will execute unittest, build docker image, launch 
+the container just build to run integration test, and then push the image to docker
+registry.
+```
+make release
+```
+
+## Kubernetes
+
+[Kubernetes installation on GCP](k8s-install)
