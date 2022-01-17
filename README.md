@@ -28,6 +28,43 @@ registry.
 make release
 ```
 
+## Graceful shutdown
+Listen to SIGINT and SIGTERM for graceful shutdown the http server, read the 
+signal from a channel, and block until signal received. Once signal received, 
+start initiating a grace shutdown.
+
+Here is the test:
+
+Start the http server. Then start another shell to send interrupt signal to the process:
+```
+$ kill -2 <pid_of_server_process>
+```
+
+Then observed output at the server side:
+```
+$ ./go-httpserver-demo
+2022/01/17 15:07:49 Starting http server
+2022/01/17 15:07:49 Server started on :8000
+2022/01/17 15:08:10 Got signal interrupt   #<<<<<< Comment: Received SIGINT >>>>>>
+2022/01/17 15:08:10 Server properly stopped
+2022/01/17 15:08:10 Running clean up...
+```
+
+Try SIGTERM
+```
+$ kill -15 <pid_of_server_process>
+```
+
+Then observed output at the server side:
+```
+$ ./go-httpserver-demo
+2022/01/17 15:10:10 Starting http server
+2022/01/17 15:10:10 Server started on :8000
+2022/01/17 15:10:32 Got signal terminated   #<<<<<< Comment: Received SIGTERM >>>>>>
+2022/01/17 15:10:32 Server properly stopped
+2022/01/17 15:10:32 Running clean up...
+```
+
 ## Enter Docker Namespace
 
 ```sh
