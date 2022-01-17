@@ -4,10 +4,10 @@ WORKDIR /app
 COPY . .
 
 ENV GOPROXY="https://mirrors.aliyun.com/goproxy/"
-
+ENV CGO_ENABLED=0
 RUN go get -d -v ./... && go install -v ./... && go build  -v -o /app/build/httpserver
 
-FROM alpine:latest
+FROM scratch
 COPY --from=build /app/build/httpserver /app/httpserver
 EXPOSE 8000
 
