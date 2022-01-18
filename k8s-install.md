@@ -1,3 +1,26 @@
+- [准备](#准备)
+  - [Setup GCP VM Instance](#setup-gcp-vm-instance)
+- [配置环境](#配置环境)
+  - [安装 Go 1.17](#安装-go-117)
+  - [测试 HTTP 服务](#测试-http-服务)
+  - [安装 Docker](#安装-docker)
+  - [安装 Kubernetes Cluster](#安装-kubernetes-cluster)
+    - [安装前准备](#安装前准备)
+    - [建立 cluster](#建立-cluster)
+    - [安装网络](#安装网络)
+    - [验证安装](#验证安装)
+    - [Trouble shooting](#trouble-shooting)
+- [探索](#探索)
+  - [启动一个 pod，暴露服务，访问服务](#启动一个-pod暴露服务访问服务)
+    - [启动一个 pod](#启动一个-pod)
+    - [查看 pod 状态](#查看-pod-状态)
+    - [查看pod详细信息](#查看pod详细信息)
+    - [暴露服务](#暴露服务)
+    - [查看服务状态](#查看服务状态)
+    - [删除服务和 pod](#删除服务和-pod)
+
+# 准备
+
 ## Setup GCP VM Instance
 
 注册 Google Cloud Platform试用账号
@@ -17,7 +40,7 @@
 
 访问官网，得到下载包地址，执行命令下载安装包到`/usr/local`，并且解压到`/usr/local`
 
-```sh 
+```sh
 $ sudo wget https://go.dev/dl/go1.17.6.linux-amd64.tar.gz -O /usr/local/go1.17.6.linux-amd64.tar.gz
 $ sudo tar zxvf  /usr/local/go1.17.6.linux-amd64.tar.gz -C /usr/local
 ```
@@ -89,11 +112,11 @@ ok
 
 如果都没有问题，说明防火墙策略配置正确，Docker 安装正确。可以开始 Kubernetes 的安装
 
-
-
 ## 安装 Kubernetes Cluster
 
 安装之前，可以给机器做一个镜像，以免安装 K8s出现异常，导致需要重新配置。GCP VM instance 会默认关闭了 swap 分区，所以不要对 swap 分区做额外调整。
+
+### 安装前准备
 
 首先，确认内核模块`br_netfilter`被正确加载，如果没有，可以通过 `sudo modprobe br_netfilter` 命令来明确加载该内核模块
 
@@ -145,19 +168,7 @@ sudo apt-get install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-初始化 cluster，参考官方文档https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
-
-```sh
-cloud-native-instance-1:~$ sudo kubeadm init --apiserver-advertise-address=192.168.123.2
-[init] Using Kubernetes version: v1.23.1
-[preflight] Running pre-flight checks
-error execution phase preflight: [preflight] Some fatal errors occurred:
-	[ERROR FileContent--proc-sys-net-ipv4-ip_forward]: /proc/sys/net/ipv4/ip_forward contents are not set to 1
-[preflight] If you know what you are doing, you can make a check non-fatal with `--ignore-preflight-errors=...`
-To see the stack trace of this error execute with --v=5 or higher
-```
-
-提示 ip_forward 没有开启，开启 ip_forward，直接修改会失败，使用 sysctl 来修改即可
+开启 ip_forward，直接修改会失败，使用 sysctl 来修改即可
 
 ```sh
 cloud-native-instance-1:~$ sudo echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -168,21 +179,18 @@ cloud-native-instance-1:~$ cat /proc/sys/net/ipv4/ip_forward
 1
 ```
 
-重新建立 cluster,指定 kubernetes 版本，指定 apiserver 地址为我们一开始配置的静态 IP 地址。
+### 建立 cluster
+
+初始化 cluster，参考[官方文档]([Creating a cluster with kubeadm | Kubernetes](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/))
+
+指定 kubernetes 版本，指定 apiserver 地址为我们一开始配置的静态 IP 地址，指定`--pod-network-cidr` 为`192.168.123.0/24`，这个参数必须要指定，否则安装 Calico 时会失败。
 
 ```sh
-cloud-native-instance-1:~$ sudo kubeadm init --kubernetes-version v1.23.1 --apiserver-advertise-address=192.168.123.2
-[init] Using Kubernetes version: v1.23.1
-[preflight] Running pre-flight checks
-[preflight] Pulling images required for setting up a Kubernetes cluster
-[preflight] This might take a minute or two, depending on the speed of your internet connection
-[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
-```
 
-执行顺利的话，会出现下面的
-
-```sh
-cloud-native-instance-1:~$ sudo kubeadm init --kubernetes-version v1.23.1 --apiserver-advertise-address=192.168.123.2
+cloud-native-instance-1:~$ sudo kubeadm init \
+                                --kubernetes-version v1.23.1
+                                --apiserver-advertise-address=192.168.123.2
+                                --pod-network-cidr 192.168.123.0/24
 [init] Using Kubernetes version: v1.23.1
 [preflight] Running pre-flight checks
 [preflight] Pulling images required for setting up a Kubernetes cluster
@@ -217,14 +225,14 @@ cloud-native-instance-1:~$ sudo kubeadm init --kubernetes-version v1.23.1 --apis
 [control-plane] Creating static Pod manifest for "kube-scheduler"
 [etcd] Creating static Pod manifest for local etcd in "/etc/kubernetes/manifests"
 [wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
-[apiclient] All control plane components are healthy after 10.502624 seconds
+[apiclient] All control plane components are healthy after 8.003761 seconds
 [upload-config] Storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
 [kubelet] Creating a ConfigMap "kubelet-config-1.23" in namespace kube-system with the configuration for the kubelets in the cluster
 NOTE: The "kubelet-config-1.23" naming of the kubelet ConfigMap is deprecated. Once the UnversionedKubeletConfigMap feature gate graduates to Beta the default name will become just "kubelet-config". Kubeadm upgrade will handle this transition transparently.
 [upload-certs] Skipping phase. Please see --upload-certs
 [mark-control-plane] Marking the node cloud-native-instance-1 as control-plane by adding the labels: [node-role.kubernetes.io/master(deprecated) node-role.kubernetes.io/control-plane node.kubernetes.io/exclude-from-external-load-balancers]
 [mark-control-plane] Marking the node cloud-native-instance-1 as control-plane by adding the taints [node-role.kubernetes.io/master:NoSchedule]
-[bootstrap-token] Using token: hxn2vl.7h2ynx61zht0p4js
+[bootstrap-token] Using token: txvn5f.k33wqdqwlcr84qd5
 [bootstrap-token] Configuring bootstrap tokens, cluster-info ConfigMap, RBAC Roles
 [bootstrap-token] configured RBAC rules to allow Node Bootstrap tokens to get nodes
 [bootstrap-token] configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
@@ -255,24 +263,355 @@ Then you can join any number of worker nodes by running the following on each as
 
 kubeadm join 192.168.123.2:6443 --token <token> \
 	--discovery-token-ca-cert-hash sha256:<sha>
+
 ```
 
 根据提示，将生成的配置文件写入相应路径，对于普通用户和 root 用户，有不同的操作指导。
 
-默认情况下处于安全考虑， Cluster 不会将 pod 调度到 master 节点上，要建立起单节点的 Cluster，需要执行如下命令，允许 scheduler 调度 pod 到 master 节点上，这种模式一般应用于搭建开发环境。
+```shell
+cloud-native-instance-1:~$ mkdir -p $HOME/.kube
+cloud-native-instance-1:~$ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+cp: overwrite '/home/user/.kube/config'? y
+cloud-native-instance-1:~$ sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
 
-如果你有更多的节点需要加入 cluster，那么在 worker 节点执行下面的命令
+默认情况下处于安全考虑， Cluster 不会将 pod 调度到 master 节点上，要建立起单节点的 Cluster，需要执行如下命令，允许 scheduler 调度 pod 到 master 节点上，这种模式一般应用于搭建开发环境。
 
 ```sh
 cloud-native-instance-1:~$ kubectl taint nodes --all node-role.kubernetes.io/master-
 node/cloud-native-instance-1 untainted
 ```
 
+如果你有更多的节点需要加入 cluster，那么在 worker 节点执行join 的命令，这这个例子中没有执行。
+
+```shell
+cloud-native-instance-1:~$ kubeadm join 192.168.123.2:6443 --token <token> \
+	--discovery-token-ca-cert-hash sha256:<sha>
+```
+
+
+
+### 安装网络
+
+首先安装 Calico 提供的 tigera operator，然后创建 custom resources，这里创建 custom resources 的时候，需要将文件里的`calicoNetwork.ipPools.cidr`的值修改成`192.168.123.0/24`，跟我们初始化 cluster 的时候设置的`--pod-network-cidr`保持一致。
+
+```shell
+cloud-native-instance-1:~$ kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+cloud-native-instance-1:~$ wget https://docs.projectcalico.org/manifests/custom-resources.yaml
+cloud-native-instance-1:~$ vi custom-resources.yaml
+cloud-native-instance-1:~$ kubectl create -f custom-resources.yaml
+
+```
+
+执行完成后提示成功，安装完成
+
+### 验证安装
+
+验证 core services 运行正常
+
+```shell
+
+cloud-native-instance-1:~$ k get cs
+Warning: v1 ComponentStatus is deprecated in v1.19+
+NAME                 STATUS    MESSAGE                         ERROR
+scheduler            Healthy   ok
+controller-manager   Healthy   ok
+etcd-0               Healthy   {"health":"true","reason":""}
+```
+
+验证 calico namespace 运行状态和其他 namespace
+
+```shell
+cloud-native-instance-1:~$  k get ns
+NAME               STATUS   AGE
+calico-apiserver   Active   2m20s
+calico-system      Active   3m22s
+default            Active   4m46s
+kube-node-lease    Active   4m47s
+kube-public        Active   4m48s
+kube-system        Active   4m48s
+tigera-operator    Active   3m35s证
+```
+
+验证节点状态是否 ready
+
+```shell
+cloud-native-instance-1:~$ k get node
+NAME                      STATUS   ROLES                  AGE     VERSION
+cloud-native-instance-1   Ready    control-plane,master   4m56s   v1.23.1
+```
+
+验证 kube-system 空间下的服务是否正确启动并运行
+
+```shell
+cloud-native-instance-1:~$ ks get pods
+NAME                                              READY   STATUS    RESTARTS   AGE
+coredns-64897985d-gxdtl                           1/1     Running   0          11m
+coredns-64897985d-tkx28                           1/1     Running   0          11m
+etcd-cloud-native-instance-1                      1/1     Running   9          11m
+kube-apiserver-cloud-native-instance-1            1/1     Running   9          11m
+kube-controller-manager-cloud-native-instance-1   1/1     Running   0          11m
+kube-proxy-hvhzs                                  1/1     Running   0          11m
+kube-scheduler-cloud-native-instance-1            1/1     Running   8          11m果
+```
+
+如果上述检查都通过，没有异常，则说明安装成功
+
+
+
+### Trouble shooting
+
+首先验证节点是否准备就绪
+
+```shell
+cloud-native-instance-1:~$ k get cs
+Warning: v1 ComponentStatus is deprecated in v1.19+
+NAME                 STATUS    MESSAGE                         ERROR
+controller-manager   Healthy   ok
+scheduler            Healthy   ok
+etcd-0               Healthy   {"health":"true","reason":""}
+cloud-native-instance-1:~$ k get no
+NAME                      STATUS     ROLES                  AGE     VERSION
+cloud-native-instance-1   NotReady   control-plane,master   5d22h   v1.23.1
+```
+
+发现节点处于 `NotReady` 状态
+
+```shell
+
+cloud-native-instance-1:~$ k get pods -n kube-system
+NAME                                              READY   STATUS    RESTARTS      AGE
+coredns-64897985d-4cjp9                           0/1     Pending   0             5d22h
+coredns-64897985d-64nhf                           0/1     Pending   0             5d22h
+etcd-cloud-native-instance-1                      1/1     Running   8 (64m ago)   5d22h
+kube-apiserver-cloud-native-instance-1            1/1     Running   8 (63m ago)   5d22h
+kube-controller-manager-cloud-native-instance-1   1/1     Running   8 (64m ago)   5d22h
+kube-proxy-kfl8t                                  1/1     Running   7 (64m ago)   5d22h
+kube-scheduler-cloud-native-instance-1            1/1     Running   7 (64m ago)   5d22h
+jkzhang@cloud-native-instance-1:~$
+```
+
+发现 coredns 没有启动成功
+
+```shell
+cloud-native-instance-1:~$ ks describe node
+Name:               cloud-native-instance-1
+Roles:              control-plane,master
+Labels:             beta.kubernetes.io/arch=amd64
+                    beta.kubernetes.io/os=linux
+                    kubernetes.io/arch=amd64
+                    kubernetes.io/hostname=cloud-native-instance-1
+                    kubernetes.io/os=linux
+                    node-role.kubernetes.io/control-plane=
+                    node-role.kubernetes.io/master=
+                    node.kubernetes.io/exclude-from-external-load-balancers=
+Annotations:        kubeadm.alpha.kubernetes.io/cri-socket: /var/run/dockershim.sock
+                    node.alpha.kubernetes.io/ttl: 0
+                    volumes.kubernetes.io/controller-managed-attach-detach: true
+CreationTimestamp:  Wed, 12 Jan 2022 03:57:32 +0000
+Taints:             node.kubernetes.io/not-ready:NoSchedule
+Unschedulable:      false
+Lease:
+  HolderIdentity:  cloud-native-instance-1
+  AcquireTime:     <unset>
+  RenewTime:       Tue, 18 Jan 2022 02:57:56 +0000
+Conditions:
+  Type             Status  LastHeartbeatTime                 LastTransitionTime                Reason                       Message
+  ----             ------  -----------------                 ------------------                ------                       -------
+  MemoryPressure   False   Tue, 18 Jan 2022 02:57:46 +0000   Wed, 12 Jan 2022 03:57:30 +0000   KubeletHasSufficientMemory   kubelet has sufficient memory available
+  DiskPressure     False   Tue, 18 Jan 2022 02:57:46 +0000   Wed, 12 Jan 2022 03:57:30 +0000   KubeletHasNoDiskPressure     kubelet has no disk pressure
+  PIDPressure      False   Tue, 18 Jan 2022 02:57:46 +0000   Wed, 12 Jan 2022 03:57:30 +0000   KubeletHasSufficientPID      kubelet has sufficient PID available
+  Ready            False   Tue, 18 Jan 2022 02:57:46 +0000   Wed, 12 Jan 2022 03:57:30 +0000   KubeletNotReady              container runtime network not ready: NetworkReady=false reason:NetworkPluginNotReady message:docker: network plugin is not ready: cni config uninitialized
+Addresses:
+  InternalIP:  192.168.123.2
+  Hostname:    cloud-native-instance-1
+Capacity:
+  cpu:                4
+  ephemeral-storage:  52174732Ki
+  hugepages-1Gi:      0
+  hugepages-2Mi:      0
+  memory:             16384456Ki
+  pods:               110
+Allocatable:
+  cpu:                4
+  ephemeral-storage:  48084232932
+  hugepages-1Gi:      0
+  hugepages-2Mi:      0
+  memory:             16282056Ki
+  pods:               110
+System Info:
+  Machine ID:                 ac437a51197e55c81cd67c9305274acb
+  System UUID:                ac437a51-197e-55c8-1cd6-7c9305274acb
+  Boot ID:                    9154b6e7-045c-4818-8756-b8211314f9bc
+  Kernel Version:             5.13.0-1010-gcp
+  OS Image:                   Ubuntu 21.10
+  Operating System:           linux
+  Architecture:               amd64
+  Container Runtime Version:  docker://20.10.12
+  Kubelet Version:            v1.23.1
+  Kube-Proxy Version:         v1.23.1
+Non-terminated Pods:          (6 in total)
+  Namespace                   Name                                               CPU Requests  CPU Limits  Memory Requests  Memory Limits  Age
+  ---------                   ----                                               ------------  ----------  ---------------  -------------  ---
+  kube-system                 etcd-cloud-native-instance-1                       100m (2%)     0 (0%)      100Mi (0%)       0 (0%)         5d23h
+  kube-system                 kube-apiserver-cloud-native-instance-1             250m (6%)     0 (0%)      0 (0%)           0 (0%)         5d23h
+  kube-system                 kube-controller-manager-cloud-native-instance-1    200m (5%)     0 (0%)      0 (0%)           0 (0%)         5d23h
+  kube-system                 kube-proxy-kfl8t                                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         5d23h
+  kube-system                 kube-scheduler-cloud-native-instance-1             100m (2%)     0 (0%)      0 (0%)           0 (0%)         5d23h
+  tigera-operator             tigera-operator-768d489967-fhxzf                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         110m
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests    Limits
+  --------           --------    ------
+  cpu                650m (16%)  0 (0%)
+  memory             100Mi (0%)  0 (0%)
+  ephemeral-storage  0 (0%)      0 (0%)
+  hugepages-1Gi      0 (0%)      0 (0%)
+  hugepages-2Mi      0 (0%)      0 (0%)
+Events:
+  Type    Reason                   Age   From     Message
+  ----    ------                   ----  ----     -------
+  Normal  Starting                 51m   kubelet  Starting kubelet.
+  Normal  NodeHasSufficientMemory  51m   kubelet  Node cloud-native-instance-1 status is now: NodeHasSufficientMemory
+  Normal  NodeHasNoDiskPressure    51m   kubelet  Node cloud-native-instance-1 status is now: NodeHasNoDiskPressure
+  Normal  NodeHasSufficientPID     51m   kubelet  Node cloud-native-instance-1 status is now: NodeHasSufficientPID
+  Normal  NodeAllocatableEnforced  51m   kubelet  Updated Node Allocatable limit across pods
+```
+
+从 conditions 里面发现错误，说 `container runtime network not ready`，由此推断是网络相关问题，刚才做的网络相关的操作是安装 calico，所以回头看看相关文档。发现 calico custom resources 的 cidr配置需要跟 kubeadm init 的时候指定的`--pod-network-cidr`一致，但是在刚才运行 init 命令时，我没有指定这个参数。
+
+解决方法是重新执行 init。首先执行 `kubeadm reset` 来恢复到 init 之前的状态，然后加上参数重新执行init即可。
+
+
+
 # 探索
 
-## namespace
+## 启动一个 pod，暴露服务，访问服务
 
-## cgroups
+### 启动一个 pod
 
+```shell
+cloud-native-instance-1:~$ k run --image=drinkey/httpserver http
+pod/http created
+```
+
+### 查看 pod 状态
+
+```shell
+cloud-native-instance-1:~$ k get po
+NAME   READY   STATUS    RESTARTS   AGE
+http   1/1     Running   0          6s
+```
+
+### 查看pod详细信息
+
+```sh
+cloud-native-instance-1:~$ k describe po
+Name:         http
+Namespace:    default
+Priority:     0
+Node:         cloud-native-instance-1/192.168.123.2
+Start Time:   Tue, 18 Jan 2022 06:53:18 +0000
+Labels:       run=http
+Annotations:  cni.projectcalico.org/containerID: b011da1b866b4fbb43b6266e3189a9d169c3583b5cc8e049815de1f94d4b5ae7
+              cni.projectcalico.org/podIP: 192.168.123.203/32
+              cni.projectcalico.org/podIPs: 192.168.123.203/32
+Status:       Running
+IP:           192.168.123.203
+IPs:
+  IP:  192.168.123.203
+Containers:
+  http:
+    Container ID:   docker://9c0a3bd6273533a5948baaea728ea05c52ea0a8d055c2d3cf55942e0f2a276e1
+    Image:          drinkey/httpserver
+    Image ID:       docker-pullable://drinkey/httpserver@sha256:ad76459e7bae785b76623fceba93e3b5d0d6dbd880d9e100e08fce918fb56daa
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Tue, 18 Jan 2022 06:53:21 +0000
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-q84cp (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:
+  kube-api-access-q84cp:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  13s   default-scheduler  Successfully assigned default/http to cloud-native-instance-1
+  Normal  Pulling    12s   kubelet            Pulling image "drinkey/httpserver"
+  Normal  Pulled     10s   kubelet            Successfully pulled image "drinkey/httpserver" in 1.994025865s
+  Normal  Created    10s   kubelet            Created container http
+  Normal  Started    10s   kubelet            Started container http
+
+```
+
+### 暴露服务
+
+```shell
+cloud-native-instance-1:~$ k expose pod http --selector run=http --port=80 --target-port=8000 --type=NodePort
+service/http exposed
+```
+
+### 查看服务状态
+
+```shell
+cloud-native-instance-1:~$ k get svc
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+http         NodePort    10.102.41.216   <none>        80:31945/TCP   4s
+kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP        4h5m
+cloud-native-instance-1:~$ k describe svc http
+Name:                     http
+Namespace:                default
+Labels:                   run=http
+Annotations:              <none>
+Selector:                 run=http
+Type:                     NodePort
+IP Family Policy:         SingleStack
+IP Families:              IPv4
+IP:                       10.102.41.216
+IPs:                      10.102.41.216
+Port:                     <unset>  80/TCP
+TargetPort:               8000/TCP
+NodePort:                 <unset>  31945/TCP
+Endpoints:                192.168.123.203:8000
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+cloud-native-instance-1:~$
+cloud-native-instance-1:~$ curl 10.102.41.216
+welcome
+```
+
+### 删除服务和 pod
+
+```shell
+cloud-native-instance-1:~$ k delete svc http
+service "http" deleted
+cloud-native-instance-1:~$ k delete pod http
+pod "http" deleted
+cloud-native-instance-1:~$ k get pod
+No resources found in default namespace.
+cloud-native-instance-1:~$ k get svc
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   4h9m
+cloud-native-instance-1:~$
+```
 
 
