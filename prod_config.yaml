@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: httpserver-env-prod
+  namespace: default
+data:
+  VERSION: v1.0.2
+  DEBUG: "0"
+  CONFIG_PATH: /etc/httpserver/app.ini
+  ENV: production

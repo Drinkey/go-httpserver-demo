@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: httpserver-env-staging
+  namespace: default
+data:
+  VERSION: v1.0.3
+  DEBUG: "1"
+  CONFIG_PATH: /etc/config/app.ini
+  ENV: staging

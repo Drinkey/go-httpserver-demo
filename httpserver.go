@@ -47,6 +47,21 @@ func defaultHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// this code block is useless, just for testing reading config file
+	config_path := os.Getenv("CONFIG_PATH")
+	if config_path != "" {
+		log.Printf("Got config path from env: %s", config_path)
+	} else {
+		config_path = "/etc/config/app.ini"
+		log.Printf("env does not have CONFIG_PATH, use default %s", config_path)
+	}
+	configBytes, err := os.ReadFile(config_path)
+	if err != nil {
+		log.Fatalf("read configuration file failed: %v", err)
+	}
+	log.Printf("Loading configuration conent")
+	log.Printf("%s = %s", config_path, string(configBytes))
+
 	mux := http.NewServeMux()
 	debug := os.Getenv("HTTP_DEBUG")
 	if debug == "1" {
@@ -78,6 +93,8 @@ func main() {
 	}()
 
 	log.Printf("Server started on %s", serverAddr)
+	version := os.Getenv("VERSION")
+	log.Printf("version=%s", version)
 
 	// wait for done channel receive signal
 	sig := <-done
