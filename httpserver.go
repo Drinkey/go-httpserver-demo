@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const startFlag = "/tmp/httpserver_ready"
+
 type Response struct {
 	StatusCode int
 	Data       string
@@ -95,6 +97,12 @@ func main() {
 	log.Printf("Server started on %s", serverAddr)
 	version := os.Getenv("VERSION")
 	log.Printf("version=%s", version)
+	log.Printf("Creating startup ready flag %s", startFlag)
+	fp, err := os.Create(startFlag)
+	defer fp.Close()
+	if err != nil {
+		log.Panicf("Failed to create startup flag, %v", err)
+	}
 
 	// wait for done channel receive signal
 	sig := <-done
@@ -103,6 +111,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer func() {
 		log.Println("Running clean up...")
+		log.Printf("Deleting start flag file %s", startFlag)
+		if err := os.Remove(startFlag); err != nil {
+			log.Println("Failed to clear start flag file, clean it manually")
+		}
 		srv.Close()
 		cancel()
 	}()
