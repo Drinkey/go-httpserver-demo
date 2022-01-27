@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const startFlag = "/tmp/httpserver_ready"
+const startUpFlag = "/tmp/httpserver_ready"
 
 type Response struct {
 	StatusCode int
@@ -63,7 +63,7 @@ func main() {
 	}
 	log.Printf("Loading configuration conent")
 	log.Printf("%s = %s", config_path, string(configBytes))
-
+	// Setup HTTP service
 	mux := http.NewServeMux()
 	debug := os.Getenv("HTTP_DEBUG")
 	if debug == "1" {
@@ -93,12 +93,14 @@ func main() {
 			log.Fatalf("Failed to start http server, %+v", err)
 		}
 	}()
-
+	// Output some info to indicate the service started
 	log.Printf("Server started on %s", serverAddr)
 	version := os.Getenv("VERSION")
 	log.Printf("version=%s", version)
-	log.Printf("Creating startup ready flag %s", startFlag)
-	fp, err := os.Create(startFlag)
+
+	// Create startup flag file
+	log.Printf("Creating startup ready flag %s", startUpFlag)
+	fp, err := os.Create(startUpFlag)
 	defer fp.Close()
 	if err != nil {
 		log.Panicf("Failed to create startup flag, %v", err)
@@ -111,8 +113,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer func() {
 		log.Println("Running clean up...")
-		log.Printf("Deleting start flag file %s", startFlag)
-		if err := os.Remove(startFlag); err != nil {
+		log.Printf("Deleting start flag file %s", startUpFlag)
+		if err := os.Remove(startUpFlag); err != nil {
 			log.Println("Failed to clear start flag file, clean it manually")
 		}
 		srv.Close()
