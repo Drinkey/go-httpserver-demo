@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: httpserver
+  name: httpserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      run: httpserver
+  template:
+    metadata:
+      labels:
+        run: httpserver
+    spec:
+      containers:
+        - image: drinkey/httpserver
+          name: httpserver
+          envFrom:
+          - configMapRef:
+              name: httpserver-env-prod
+          volumeMounts:
+          - name: httpserver-ini
+            mountPath: "/etc/httpserver"
+            readOnly: true
+          ports:
+            - containerPort: 8000
+              name: serve-port
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: serve-port
+              httpHeaders:
+              - name: Custom-Header
+                value: Awesome
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: serve-port
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          startupProbe:
+            exec:
+              command:
+                - cat
+                - /tmp/httpserver_ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "500m"
+            limits:
+              memory: "256Mi"
+              cpu: "1000m"
+      volumes:
+      - name: httpserver-ini
+        configMap:
+          name: httpserver-ini-prod

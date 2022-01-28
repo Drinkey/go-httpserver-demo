@@ -11,6 +11,11 @@ README Table of Content
   - [Requirement](#requirement-1)
   - [Enter Docker Namespace](#enter-docker-namespace)
 - [Kubernetes](#kubernetes)
+  - [Configure ConfigMap](#configure-configmap)
+  - [Create Deployment](#create-deployment)
+  - [Create service](#create-service)
+  - [Viewing pod logs](#viewing-pod-logs)
+  - [Probes](#probes)
 
 # Module 2
 ## Requirement
@@ -116,3 +121,100 @@ cloud-native-instance-1:~$
 # Kubernetes
 
 [Kubernetes installation on GCP](k8s-install)
+
+## Configure ConfigMap
+
+Create configuration file configmaps
+```
+$ k create configmap httpserver-ini-prod --from-file=app.ini=prod_app.ini
+$ k create configmap httpserver-ini-staging --from-file=app.ini=staging_app.ini
+```
+
+Create environment variable configmaps
+```
+$ k create -f prod_config.yaml
+$ k create -f staging_config.yaml
+```
+
+## Create Deployment
+
+Use different deployment YAML file to create different kind of deployment
+
+To create production deployment
+```
+$ k create -f deploy_prod.yaml
+```
+
+## Create service
+```
+$ k create -f service.yaml
+```
+
+## Viewing pod logs
+
+```
+$ k logs -f httpserver-7455c7c995-dxd2s
+2022/01/27 07:46:55 Got config path from env: /etc/httpserver/app.ini
+2022/01/27 07:46:55 Loading configuration conent
+2022/01/27 07:46:55 /etc/httpserver/app.ini = # Production app configuration file, should stores in configMap
+welcome="Hello, Kubernetes"
+port=80
+2022/01/27 07:46:55 Starting http server
+2022/01/27 07:46:55 Server started on :8000
+2022/01/27 07:46:55 version=v1.0.2
+2022/01/27 07:46:55 Creating startup ready flag /tmp/httpserver_ready
+```
+This means the server app started successfully, and it reads correct configmaps content.
+
+## Probes
+
+According to [official Kubernetes document regarding probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/), 
+- liveness probe - know when to restart a container
+- readiness probe - know when a container is ready to start accepting traffic
+- startup probe - know when a container application has started
+
+We defined all three types of probes in our deployment. 
+- `liveness probe` uses HTTP GET to know if the service is functional or not
+- `readiness probe` uses TCP socket to detect whether the service is listening on the specified port(s)
+- `startup probe` uses a flag file to detect whether the service application is start correctly
+
+Once our application starts and listening on the service port, we will create the start up flag file. It indicates the services started as expected.
+
+Let's first kill the application process and see what happens
+
+```
+$ k get po
+NAME                          READY   STATUS    RESTARTS   AGE
+httpserver-7455c7c995-dxd2s   1/1     Running   0          3m8s
+httpserver-7455c7c995-wsjpt   1/1     Running   0          3m8s
+$ k exec httpserver-7455c7c995-dxd2s -- ps
+PID   USER     TIME  COMMAND
+    1 root      0:00 /app/httpserver
+   23 root      0:00 ps
+$ k exec httpserver-7455c7c995-dxd2s -- kill -15 1
+```
+
+Meanwhile, look at the application log
+```
+$ k logs -f httpserver-7455c7c995-dxd2s
+2022/01/27 07:50:20 Got signal terminated
+2022/01/27 07:50:20 Server properly stopped
+2022/01/27 07:50:20 Running clean up...
+2022/01/27 07:50:20 Deleting start flag file /tmp/httpserver_ready
+```
+
+Let's watch the pod `httpserver-7455c7c995-dxd2s` manually marked by `#<<<<<<<<>>>>>>>>`
+
+```
+$ k get po -w
+NAME                          READY   STATUS    RESTARTS      AGE
+httpserver-7455c7c995-dxd2s   0/1     Running   1 (14s ago)   3m54s #<<<<<<<<>>>>>>>>
+httpserver-7455c7c995-wsjpt   1/1     Running   0             3m54s
+httpserver-7455c7c995-dxd2s   0/1     Running   1 (15s ago)   3m55s #<<<<<<<<>>>>>>>>
+httpserver-7455c7c995-dxd2s   1/1     Running   1 (15s ago)   3m55s #<<<<<<<<>>>>>>>>
+^C
+$ k get po
+NAME                          READY   STATUS    RESTARTS      AGE
+httpserver-7455c7c995-dxd2s   1/1     Running   1 (38s ago)   4m18s #<<<<<<<<>>>>>>>>
+httpserver-7455c7c995-wsjpt   1/1     Running   0             4m18s
+```
